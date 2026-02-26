@@ -1,3 +1,4 @@
+//com.edwindiaz.votaya_tilinesup/core/navigation/Screen.kt
 package com.edwindiaz.votaya_tilinesup.core.navigation
 
 import kotlinx.serialization.Serializable
