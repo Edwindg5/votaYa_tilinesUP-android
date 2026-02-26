@@ -29,7 +29,6 @@ class PollRepositoryImpl @Inject constructor(
     override suspend fun getPolls(): List<Poll> = try {
         Log.d("PollRepository", "getPolls: iniciando carga")
 
-        // Obtener todos los documentos de polls
         val pollsSnapshot = firestore.collection("polls")
             .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .get()
@@ -45,7 +44,7 @@ class PollRepositoryImpl @Inject constructor(
             if (pollDto != null) {
                 // Obtener las opciones de la subcolección
                 val optionsSnapshot = doc.reference.collection("options").get().await()
-                Log.d("PollRepository", "Encuesta ${doc.id}: ${optionsSnapshot.documents.size} opciones")
+                Log.d("PollRepository", "Encuesta ${doc.id}: ${optionsSnapshot.documents.size} opciones encontradas")
 
                 val options = optionsSnapshot.documents.mapNotNull { optionDoc ->
                     optionDoc.toObject(PollOptionDto::class.java)?.copy(id = optionDoc.id)
@@ -73,8 +72,7 @@ class PollRepositoryImpl @Inject constructor(
 
                     if (pollDto != null) {
                         // Nota: En un flujo en tiempo real, esto no es óptimo
-                        // Sería mejor tener un flujo separado para opciones
-                        val options = emptyList<PollOption>() // Simplificamos por ahora
+                        val options = emptyList<PollOption>()
                         polls.add(pollDto.toDomain(options))
                     }
                 }
@@ -89,7 +87,6 @@ class PollRepositoryImpl @Inject constructor(
         val currentUser = auth.currentUser
             ?: throw Exception("Usuario no autenticado")
 
-        // Crear documento de encuesta
         val pollRef = firestore.collection("polls").document()
 
         val pollDto = PollDto(
@@ -100,11 +97,9 @@ class PollRepositoryImpl @Inject constructor(
             createdAt = Timestamp.now()
         )
 
-        // Guardar la encuesta
         pollRef.set(pollDto).await()
         Log.d("PollRepository", "Encuesta creada con ID: ${pollRef.id}")
 
-        // Guardar las opciones en la subcolección
         val optionEntities = options.mapIndexed { index, text ->
             val optionRef = pollRef.collection("options").document()
             val optionDto = PollOptionDto(
@@ -136,21 +131,14 @@ class PollRepositoryImpl @Inject constructor(
         val optionRef = pollRef.collection("options").document(optionId)
         val userVoteRef = pollRef.collection("userVotes").document(currentUser.uid)
 
-        // Verificar si ya votó
         val voteDoc = userVoteRef.get().await()
         if (voteDoc.exists()) {
             throw Exception("Ya has votado en esta encuesta")
         }
 
-        // Transacción para actualizar votos
         firestore.runTransaction { transaction ->
-            // Incrementar votos de la opción
             transaction.update(optionRef, "votes", FieldValue.increment(1))
-
-            // Incrementar totalVotes de la encuesta
             transaction.update(pollRef, "totalVotes", FieldValue.increment(1))
-
-            // Registrar el voto del usuario
             transaction.set(userVoteRef, mapOf(
                 "optionId" to optionId,
                 "votedAt" to Timestamp.now()
@@ -172,7 +160,6 @@ class PollRepositoryImpl @Inject constructor(
         val pollDto = pollDoc.toObject(PollDto::class.java)?.copy(id = pollDoc.id)
             ?: throw Exception("Encuesta no encontrada")
 
-        // Obtener opciones
         val optionsSnapshot = pollDoc.reference.collection("options").get().await()
         val options = optionsSnapshot.documents.mapNotNull { optionDoc ->
             optionDoc.toObject(PollOptionDto::class.java)?.copy(id = optionDoc.id)

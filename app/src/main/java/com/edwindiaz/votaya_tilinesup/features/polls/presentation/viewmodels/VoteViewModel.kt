@@ -25,10 +25,26 @@ class VoteViewModel @Inject constructor(
 
     fun loadPoll(pollId: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, error = null) }
             getPollById(pollId).fold(
-                onSuccess = { poll -> _uiState.update { it.copy(isLoading = false, poll = poll) } },
-                onFailure = { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+                onSuccess = { poll ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            poll = poll,
+                            selectedOptionId = null,
+                            isSuccess = false
+                        )
+                    }
+                },
+                onFailure = { e ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = e.message ?: "Error al cargar la encuesta"
+                        )
+                    }
+                }
             )
         }
     }
@@ -40,14 +56,31 @@ class VoteViewModel @Inject constructor(
     fun vote(pollId: String) {
         val optionId = _uiState.value.selectedOptionId ?: return
         viewModelScope.launch {
-            _uiState.update { it.copy(isVoting = true) }
+            _uiState.update { it.copy(isVoting = true, error = null) }
             voteUseCase(pollId, optionId).fold(
-                onSuccess = { _uiState.update { it.copy(isVoting = false, isSuccess = true) } },
+                onSuccess = {
+                    _uiState.update {
+                        it.copy(
+                            isVoting = false,
+                            isSuccess = true,
+                            error = null
+                        )
+                    }
+                },
                 onFailure = { e ->
-                    _uiState.update { it.copy(isVoting = false, error = e.message) }
+                    _uiState.update {
+                        it.copy(
+                            isVoting = false,
+                            error = e.message ?: "Error al votar"
+                        )
+                    }
                     _events.emit(e.message ?: "Error al votar")
                 }
             )
         }
+    }
+
+    fun resetState() {
+        _uiState.update { VoteUIState() }
     }
 }

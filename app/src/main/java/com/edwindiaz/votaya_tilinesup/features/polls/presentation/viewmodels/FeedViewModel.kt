@@ -3,7 +3,6 @@ package com.edwindiaz.votaya_tilinesup.features.polls.presentation.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.edwindiaz.votaya_tilinesup.features.polls.domain.entities.Poll
 import com.edwindiaz.votaya_tilinesup.features.polls.domain.usecases.ObservePollsUseCase
 import com.edwindiaz.votaya_tilinesup.features.polls.presentation.screens.FeedUIState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,7 +31,6 @@ class FeedViewModel @Inject constructor(
 
             try {
                 // Pequeño delay para que se vea el indicador de carga
-                // (opcional, solo para UX)
                 delay(500)
 
                 val polls = observePolls()
@@ -40,7 +38,7 @@ class FeedViewModel @Inject constructor(
                     it.copy(
                         isLoading = false,
                         polls = polls,
-                        error = if (polls.isEmpty()) "No hay encuestas disponibles" else null
+                        error = null  // Quitamos el error si no hay polls
                     )
                 }
             } catch (e: Exception) {

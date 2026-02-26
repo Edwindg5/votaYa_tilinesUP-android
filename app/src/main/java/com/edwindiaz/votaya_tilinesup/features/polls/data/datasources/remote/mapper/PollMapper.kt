@@ -21,9 +21,9 @@ fun PollOption.toDto() = PollOptionDto(
 fun PollDto.toDomain(options: List<PollOption> = emptyList()): Poll {
     return Poll(
         id = id,
-        question = title,  // Mapeamos title a question
-        authorId = ownerId, // Mapeamos ownerId a authorId
-        authorName = "",    // Esto lo obtendremos de otro lado
+        question = title,
+        authorId = ownerId,
+        authorName = "", // Esto se puede obtener de users collection después
         options = options,
         totalVotes = totalVotes,
         createdAt = createdAt?.seconds?.times(1000) ?: 0L
