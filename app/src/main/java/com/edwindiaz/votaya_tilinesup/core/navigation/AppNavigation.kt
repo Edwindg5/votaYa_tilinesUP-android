@@ -1,4 +1,3 @@
-//com.edwindiaz.votaya_tilinesup/AppNavigation.kt
 package com.edwindiaz.votaya_tilinesup.core.navigation
 
 import androidx.compose.runtime.Composable
@@ -18,47 +17,40 @@ import com.edwindiaz.votaya_tilinesup.features.polls.presentation.screens.VoteSc
 fun AppNavigation() {
     val navController = rememberNavController()
 
-    NavHost(
-        navController = navController,
-        startDestination = "login"
-    ) {
-        composable("login") {
+    NavHost(navController = navController, startDestination = Screen.Login.route) {
+        composable(Screen.Login.route) {
             LoginScreen(
-                onNavigateToRegister = { navController.navigate("register") },
+                onNavigateToRegister = { navController.navigate(Screen.Register.route) },
                 onLoginSuccess = {
-                    navController.navigate("feed") {
-                        popUpTo("login") { inclusive = true }
+                    navController.navigate(Screen.Feed.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 }
             )
         }
-
-        composable("register") {
+        composable(Screen.Register.route) {
             RegisterScreen(
                 onBack = { navController.popBackStack() },
                 onRegisterSuccess = {
-                    navController.navigate("feed") {
-                        popUpTo("login") { inclusive = true }
+                    navController.navigate(Screen.Feed.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 }
             )
         }
-
-        composable("feed") {
+        composable(Screen.Feed.route) {
             FeedScreen(
-                onNavigateToCreatePoll = { navController.navigate("create_poll") },
+                onNavigateToCreatePoll = { navController.navigate(Screen.CreatePoll.route) },
                 onNavigateToVote = { pollId -> navController.navigate("vote/$pollId") },
                 onNavigateToResults = { pollId -> navController.navigate("results/$pollId") }
             )
         }
-
-        composable("create_poll") {
+        composable(Screen.CreatePoll.route) {
             CreatePollScreen(
                 onBack = { navController.popBackStack() },
                 onPollCreated = { navController.popBackStack() }
             )
         }
-
         composable(
             route = "vote/{pollId}",
             arguments = listOf(navArgument("pollId") { type = NavType.StringType })
@@ -70,7 +62,6 @@ fun AppNavigation() {
                 onVoteSuccess = { navController.navigate("results/$pollId") }
             )
         }
-
         composable(
             route = "results/{pollId}",
             arguments = listOf(navArgument("pollId") { type = NavType.StringType })
