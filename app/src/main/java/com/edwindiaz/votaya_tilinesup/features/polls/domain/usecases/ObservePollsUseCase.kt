@@ -8,9 +8,5 @@ import javax.inject.Inject
 class ObservePollsUseCase @Inject constructor(
     private val repository: PollRepository
 ) {
-    // Versión suspend (una sola vez)
     suspend operator fun invoke(): List<Poll> = repository.getPolls()
-
-    // O versión Flow (tiempo real) - descomenta si usas Flow
-    // operator fun invoke(): Flow<List<Poll>> = repository.observePolls()
 }

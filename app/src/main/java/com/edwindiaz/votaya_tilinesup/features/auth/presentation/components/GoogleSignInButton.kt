@@ -26,9 +26,14 @@ fun GoogleSignInButton(
         enabled = !isLoading,
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.White,
-            contentColor = Color.Black
+            contentColor = Color.Black,
+            disabledContainerColor = Color.LightGray,
+            disabledContentColor = Color.Gray
         ),
-        border = ButtonDefaults.outlinedButtonBorder
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp
+        )
     ) {
         if (isLoading) {
             CircularProgressIndicator(
@@ -45,9 +50,9 @@ fun GoogleSignInButton(
                     text = "G",
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(end = 8.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Continuar con Google",
                     fontWeight = FontWeight.Medium,

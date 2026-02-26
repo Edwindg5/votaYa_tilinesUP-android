@@ -1,18 +1,12 @@
 //PollDto.kt
 package com.edwindiaz.votaya_tilinesup.features.polls.data.datasources.remote.models
 
-data class PollOptionDto(
-    val id: String = "",
-    val text: String = "",
-    val votes: Int = 0
-)
+import com.google.firebase.Timestamp
 
 data class PollDto(
     val id: String = "",
-    val question: String = "",
-    val authorId: String = "",
-    val authorName: String = "",
-    val options: Map<String, PollOptionDto> = emptyMap(),
+    val title: String = "",
+    val ownerId: String = "",
     val totalVotes: Int = 0,
-    val createdAt: Long = 0
+    val createdAt: Timestamp? = null
 )

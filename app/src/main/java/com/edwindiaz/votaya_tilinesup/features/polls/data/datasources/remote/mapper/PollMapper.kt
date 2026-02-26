@@ -12,16 +12,20 @@ fun PollOptionDto.toDomain() = PollOption(
     votes = votes
 )
 
-fun PollDto.toDomain(): Poll {
-    val optionsList = options.values.map { it.toDomain() }
+fun PollOption.toDto() = PollOptionDto(
+    id = id,
+    text = text,
+    votes = votes
+)
 
+fun PollDto.toDomain(options: List<PollOption> = emptyList()): Poll {
     return Poll(
         id = id,
-        question = question,
-        authorId = authorId,
-        authorName = authorName,
-        options = optionsList,
+        question = title,  // Mapeamos title a question
+        authorId = ownerId, // Mapeamos ownerId a authorId
+        authorName = "",    // Esto lo obtendremos de otro lado
+        options = options,
         totalVotes = totalVotes,
-        createdAt = createdAt
+        createdAt = createdAt?.seconds?.times(1000) ?: 0L
     )
 }

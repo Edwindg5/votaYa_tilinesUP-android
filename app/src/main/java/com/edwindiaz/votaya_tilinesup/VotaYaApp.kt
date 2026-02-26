@@ -1,5 +1,4 @@
-//com.edwindiaz.votaya_tilinesup
-
+//VotaYaApp
 package com.edwindiaz.votaya_tilinesup
 
 import android.app.Application
