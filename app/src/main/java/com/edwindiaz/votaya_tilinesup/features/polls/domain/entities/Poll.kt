@@ -1,3 +1,4 @@
+//Poll.kt
 package com.edwindiaz.votaya_tilinesup.features.polls.domain.entities
 
 data class Poll(
@@ -7,8 +8,5 @@ data class Poll(
     val authorName: String = "",
     val options: List<PollOption> = emptyList(),
     val totalVotes: Int = 0,
-    val createdAt: Long = 0L,
-    val status: PollStatus = PollStatus.PENDING
+    val createdAt: Long = 0L
 )
-
-enum class PollStatus { PENDING, PUBLISHED, ERROR }

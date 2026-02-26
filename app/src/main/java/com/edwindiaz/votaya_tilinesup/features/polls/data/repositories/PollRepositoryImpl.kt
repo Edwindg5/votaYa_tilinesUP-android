@@ -1,56 +1,66 @@
+//PollRepositoryImpl.kt
 package com.edwindiaz.votaya_tilinesup.features.polls.data.repositories
 
-import com.edwindiaz.votaya_tilinesup.features.polls.data.datasources.local.dao.PollDao
-import com.edwindiaz.votaya_tilinesup.features.polls.data.datasources.local.entities.PollEntity
 import com.edwindiaz.votaya_tilinesup.features.polls.data.datasources.remote.mapper.toDomain
 import com.edwindiaz.votaya_tilinesup.features.polls.data.datasources.remote.models.PollDto
 import com.edwindiaz.votaya_tilinesup.features.polls.data.datasources.remote.models.PollOptionDto
 import com.edwindiaz.votaya_tilinesup.features.polls.domain.entities.Poll
-import com.edwindiaz.votaya_tilinesup.features.polls.domain.entities.PollOption
-import com.edwindiaz.votaya_tilinesup.features.polls.domain.entities.PollStatus
 import com.edwindiaz.votaya_tilinesup.features.polls.domain.repositories.PollRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.channels.awaitClose
+import com.google.firebase.firestore.snapshots
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
-import org.json.JSONArray
-import org.json.JSONObject
 import java.util.UUID
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class PollRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val firebaseAuth: FirebaseAuth,
-    private val pollDao: PollDao
+    private val auth: FirebaseAuth
 ) : PollRepository {
 
-    override fun observePolls(): Flow<List<Poll>> {
-        // Escucha Firestore en tiempo real y guarda en Room (SSOT)
-        val firestoreFlow = callbackFlow {
-            val listener = firestore.collection("polls")
-                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) return@addSnapshotListener
-                    snapshot?.documents?.mapNotNull { doc ->
-                        doc.toObject(PollDto::class.java)?.copy(id = doc.id)
-                    }?.let { trySend(it) }
-                }
-            awaitClose { listener.remove() }
-        }
+    // Versión para una sola carga
+    override suspend fun getPolls(): List<Poll> = try {
+        val snapshot = firestore.collection("polls")
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .get()
+            .await()
 
-        return pollDao.observeAll().map { entities ->
-            entities.map { it.toPollDomain() }
+        snapshot.documents.mapNotNull { doc ->
+            val poll = doc.toObject(PollDto::class.java)?.copy(id = doc.id)
+            poll?.toDomain()
         }
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    // Versión en tiempo real (Flow)
+    override fun observePolls(): Flow<List<Poll>> {
+        return firestore.collection("polls")
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .snapshots()
+            .map { snapshot ->
+                snapshot.documents.mapNotNull { doc ->
+                    val poll = doc.toObject(PollDto::class.java)?.copy(id = doc.id)
+                    poll?.toDomain()
+                }
+            }
     }
 
     override suspend fun createPoll(question: String, options: List<String>): Result<Poll> = try {
-        val currentUser = firebaseAuth.currentUser!!
+        val currentUser = auth.currentUser ?: throw Exception("Usuario no autenticado")
         val pollId = UUID.randomUUID().toString()
+
         val optionsMap = options.mapIndexed { index, text ->
-            "option$index" to PollOptionDto(id = "option$index", text = text, votes = 0)
+            "option${index + 1}" to PollOptionDto(
+                id = "option${index + 1}",
+                text = text,
+                votes = 0
+            )
         }.toMap()
 
         val pollDto = PollDto(
@@ -63,95 +73,55 @@ class PollRepositoryImpl @Inject constructor(
             createdAt = System.currentTimeMillis()
         )
 
-        // UX Optimista: guarda en Room con estado PENDING antes de ir a Firestore
-        pollDao.upsert(pollDto.toEntity(PollStatus.PENDING))
+        firestore.collection("polls")
+            .document(pollId)
+            .set(pollDto)
+            .await()
 
-        try {
-            firestore.collection("polls").document(pollId).set(pollDto).await()
-            // Confirma en Room como PUBLISHED
-            pollDao.upsert(pollDto.toEntity(PollStatus.PUBLISHED))
-            Result.success(pollDto.toDomain())
-        } catch (e: Exception) {
-            // Rollback: elimina de Room si Firestore falla
-            pollDao.delete(pollDto.toEntity(PollStatus.PENDING))
-            Result.failure(e)
-        }
+        Result.success(pollDto.toDomain())
     } catch (e: Exception) {
         Result.failure(e)
     }
 
     override suspend fun vote(pollId: String, optionId: String): Result<Unit> = try {
-        val currentUser = firebaseAuth.currentUser!!
+        val currentUser = auth.currentUser ?: throw Exception("Usuario no autenticado")
+
         val pollRef = firestore.collection("polls").document(pollId)
-        val voteRef = firestore.collection("votes").document(pollId)
-            .collection("users").document(currentUser.uid)
+        val userVoteRef = firestore.collection("polls")
+            .document(pollId)
+            .collection("votes")
+            .document(currentUser.uid)
+
+        val voteDoc = userVoteRef.get().await()
+        if (voteDoc.exists()) {
+            throw Exception("Ya has votado en esta encuesta")
+        }
 
         firestore.runTransaction { transaction ->
-            val pollSnap = transaction.get(pollRef)
-            val voteSnap = transaction.get(voteRef)
-            if (voteSnap.exists()) throw Exception("Ya votaste en esta encuesta")
-            val currentVotes = pollSnap.getLong("options.$optionId.votes") ?: 0
-            val currentTotal = pollSnap.getLong("totalVotes") ?: 0
-            transaction.update(pollRef, "options.$optionId.votes", currentVotes + 1)
-            transaction.update(pollRef, "totalVotes", currentTotal + 1)
-            transaction.set(voteRef, mapOf("optionId" to optionId))
+            transaction.update(pollRef, "options.$optionId.votes", FieldValue.increment(1))
+            transaction.update(pollRef, "totalVotes", FieldValue.increment(1))
+            transaction.set(userVoteRef, mapOf(
+                "optionId" to optionId,
+                "votedAt" to System.currentTimeMillis()
+            ))
         }.await()
+
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
     }
 
     override suspend fun getPollById(pollId: String): Result<Poll> = try {
-        val doc = firestore.collection("polls").document(pollId).get().await()
+        val doc = firestore.collection("polls")
+            .document(pollId)
+            .get()
+            .await()
+
         val pollDto = doc.toObject(PollDto::class.java)?.copy(id = doc.id)
             ?: throw Exception("Encuesta no encontrada")
+
         Result.success(pollDto.toDomain())
     } catch (e: Exception) {
         Result.failure(e)
-    }
-
-    // Helpers de conversión Entity ↔ Domain
-    private fun PollDto.toEntity(status: PollStatus) = PollEntity(
-        id = id,
-        question = question,
-        authorId = authorId,
-        authorName = authorName,
-        optionsJson = optionsToJson(options.values.map {
-            PollOption(it.id, it.text, it.votes)
-        }),
-        totalVotes = totalVotes,
-        createdAt = createdAt,
-        status = status.name
-    )
-
-    private fun PollEntity.toPollDomain() = Poll(
-        id = id,
-        question = question,
-        authorId = authorId,
-        authorName = authorName,
-        options = optionsFromJson(optionsJson),
-        totalVotes = totalVotes,
-        createdAt = createdAt,
-        status = PollStatus.valueOf(status)
-    )
-
-    private fun optionsToJson(options: List<PollOption>): String {
-        val array = JSONArray()
-        options.forEach {
-            array.put(JSONObject().apply {
-                put("id", it.id)
-                put("text", it.text)
-                put("votes", it.votes)
-            })
-        }
-        return array.toString()
-    }
-
-    private fun optionsFromJson(json: String): List<PollOption> {
-        val array = JSONArray(json)
-        return (0 until array.length()).map {
-            val obj = array.getJSONObject(it)
-            PollOption(obj.getString("id"), obj.getString("text"), obj.getInt("votes"))
-        }
     }
 }

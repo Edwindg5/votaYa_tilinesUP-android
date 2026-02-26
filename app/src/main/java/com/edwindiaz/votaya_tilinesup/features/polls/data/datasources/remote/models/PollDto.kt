@@ -1,3 +1,4 @@
+//PollDto.kt
 package com.edwindiaz.votaya_tilinesup.features.polls.data.datasources.remote.models
 
 data class PollOptionDto(
@@ -13,5 +14,5 @@ data class PollDto(
     val authorName: String = "",
     val options: Map<String, PollOptionDto> = emptyMap(),
     val totalVotes: Int = 0,
-    val createdAt: Long = 0L
+    val createdAt: Long = 0
 )

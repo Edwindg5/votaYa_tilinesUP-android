@@ -1,3 +1,4 @@
+//PollCard.kt
 package com.edwindiaz.votaya_tilinesup.features.polls.presentation.components
 
 import androidx.compose.foundation.layout.*
@@ -11,7 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.edwindiaz.votaya_tilinesup.features.polls.domain.entities.Poll
-import com.edwindiaz.votaya_tilinesup.features.polls.domain.entities.PollStatus
 
 @Composable
 fun PollCard(
@@ -22,8 +22,7 @@ fun PollCard(
 ) {
     Card(
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -31,25 +30,6 @@ fun PollCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-
-            // Estado PENDING indicator
-            if (poll.status == PollStatus.PENDING) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(10.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Publicando...",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
             Text(
                 text = poll.question,
                 style = MaterialTheme.typography.titleMedium,
@@ -60,7 +40,7 @@ fun PollCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "por @${poll.authorName}",
+                text = "por ${poll.authorName}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -80,9 +60,15 @@ fun PollCard(
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = onResultsClick) {
-                        Text("Ver resultados")
+                    TextButton(
+                        onClick = onResultsClick,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text("Resultados")
                     }
+
                     Button(
                         onClick = onVoteClick,
                         shape = RoundedCornerShape(8.dp),

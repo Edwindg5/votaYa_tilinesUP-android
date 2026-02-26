@@ -1,6 +1,10 @@
+//AppNavigation.kt
 package com.edwindiaz.votaya_tilinesup.core.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -8,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.edwindiaz.votaya_tilinesup.features.auth.presentation.screens.LoginScreen
 import com.edwindiaz.votaya_tilinesup.features.auth.presentation.screens.RegisterScreen
+import com.edwindiaz.votaya_tilinesup.features.auth.presentation.viewmodels.AuthViewModel
 import com.edwindiaz.votaya_tilinesup.features.polls.presentation.screens.CreatePollScreen
 import com.edwindiaz.votaya_tilinesup.features.polls.presentation.screens.FeedScreen
 import com.edwindiaz.votaya_tilinesup.features.polls.presentation.screens.ResultsScreen
@@ -16,57 +21,73 @@ import com.edwindiaz.votaya_tilinesup.features.polls.presentation.screens.VoteSc
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+    val authViewModel: AuthViewModel = viewModel()
+    val authState by authViewModel.authState.collectAsStateWithLifecycle()
 
-    NavHost(navController = navController, startDestination = Screen.Login.route) {
-        composable(Screen.Login.route) {
+    NavHost(
+        navController = navController,
+        startDestination = if (authState.isAuthenticated) "feed" else "login"
+    ) {
+        // Login Screen
+        composable("login") {
             LoginScreen(
-                onNavigateToRegister = { navController.navigate(Screen.Register.route) },
+                onNavigateToRegister = { navController.navigate("register") },
                 onLoginSuccess = {
-                    navController.navigate(Screen.Feed.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                    navController.navigate("feed") {
+                        popUpTo("login") { inclusive = true }
                     }
                 }
             )
         }
-        composable(Screen.Register.route) {
+
+        // Register Screen
+        composable("register") {
             RegisterScreen(
                 onBack = { navController.popBackStack() },
                 onRegisterSuccess = {
-                    navController.navigate(Screen.Feed.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                    navController.navigate("feed") {
+                        popUpTo("login") { inclusive = true }
                     }
                 }
             )
         }
-        composable(Screen.Feed.route) {
+
+        // Feed Screen
+        composable("feed") {
             FeedScreen(
-                onNavigateToCreatePoll = { navController.navigate(Screen.CreatePoll.route) },
+                onNavigateToCreatePoll = { navController.navigate("create_poll") },
                 onNavigateToVote = { pollId -> navController.navigate("vote/$pollId") },
                 onNavigateToResults = { pollId -> navController.navigate("results/$pollId") }
             )
         }
-        composable(Screen.CreatePoll.route) {
+
+        // Create Poll Screen
+        composable("create_poll") {
             CreatePollScreen(
                 onBack = { navController.popBackStack() },
                 onPollCreated = { navController.popBackStack() }
             )
         }
+
+        // Vote Screen
         composable(
             route = "vote/{pollId}",
             arguments = listOf(navArgument("pollId") { type = NavType.StringType })
-        ) { backStack ->
-            val pollId = backStack.arguments?.getString("pollId") ?: ""
+        ) { backStackEntry ->
+            val pollId = backStackEntry.arguments?.getString("pollId") ?: ""
             VoteScreen(
                 pollId = pollId,
                 onBack = { navController.popBackStack() },
                 onVoteSuccess = { navController.navigate("results/$pollId") }
             )
         }
+
+        // Results Screen
         composable(
             route = "results/{pollId}",
             arguments = listOf(navArgument("pollId") { type = NavType.StringType })
-        ) { backStack ->
-            val pollId = backStack.arguments?.getString("pollId") ?: ""
+        ) { backStackEntry ->
+            val pollId = backStackEntry.arguments?.getString("pollId") ?: ""
             ResultsScreen(
                 pollId = pollId,
                 onBack = { navController.popBackStack() }

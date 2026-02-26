@@ -1,3 +1,4 @@
+//VoteBar.kt
 package com.edwindiaz.votaya_tilinesup.features.polls.presentation.components
 
 import androidx.compose.animation.core.animateFloatAsState

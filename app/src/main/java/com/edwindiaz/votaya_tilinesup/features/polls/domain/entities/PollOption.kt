@@ -1,3 +1,4 @@
+//PollOption.kt
 package com.edwindiaz.votaya_tilinesup.features.polls.domain.entities
 
 data class PollOption(

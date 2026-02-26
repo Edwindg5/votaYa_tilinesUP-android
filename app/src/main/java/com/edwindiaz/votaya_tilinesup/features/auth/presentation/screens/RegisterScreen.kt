@@ -1,3 +1,4 @@
+//RegisterScreen.kt
 package com.edwindiaz.votaya_tilinesup.features.auth.presentation.screens
 
 import androidx.compose.foundation.background

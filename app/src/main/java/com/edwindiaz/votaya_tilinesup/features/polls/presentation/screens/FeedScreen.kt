@@ -1,3 +1,4 @@
+//FeedScreen.kt
 package com.edwindiaz.votaya_tilinesup.features.polls.presentation.screens
 
 import androidx.compose.foundation.layout.*
@@ -5,14 +6,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.edwindiaz.votaya_tilinesup.features.auth.presentation.viewmodels.AuthViewModel
 import com.edwindiaz.votaya_tilinesup.features.polls.presentation.components.PollCard
 import com.edwindiaz.votaya_tilinesup.features.polls.presentation.viewmodels.FeedViewModel
 
@@ -22,14 +29,16 @@ fun FeedScreen(
     onNavigateToCreatePoll: () -> Unit,
     onNavigateToVote: (String) -> Unit,
     onNavigateToResults: (String) -> Unit,
-    viewModel: FeedViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel(),
+    feedViewModel: FeedViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val authState by authViewModel.authState.collectAsStateWithLifecycle()
+    val feedState by feedViewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { message ->
-            snackbarHostState.showSnackbar(message)
+    LaunchedEffect(feedState.error) {
+        feedState.error?.let {
+            snackbarHostState.showSnackbar(it)
         }
     }
 
@@ -37,29 +46,35 @@ fun FeedScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "VotaYa 🗳️",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                title = { Text("VotaYa") },
+                navigationIcon = {
+                    if (authState.currentUser?.photoUrl != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(authState.currentUser?.photoUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Foto de perfil",
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(MaterialTheme.shapes.medium),
+                            contentScale = ContentScale.Crop
                         )
-                        Text(
-                            text = "Encuestas en tiempo real",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    }
+                },
+                actions = {
+                    Text(
+                        text = authState.currentUser?.displayName?.split(" ")?.first() ?: "Usuario",
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                    IconButton(onClick = { authViewModel.signOut() }) {
+                        Icon(Icons.Default.ExitToApp, contentDescription = "Cerrar sesión")
                     }
                 }
             )
         },
         floatingActionButton = {
-            @Suppress("DEPRECATION")
-            FloatingActionButton(
-                onClick = onNavigateToCreatePoll,
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
+            FloatingActionButton(onClick = onNavigateToCreatePoll) {
                 Icon(Icons.Default.Add, contentDescription = "Crear encuesta")
             }
         }
@@ -69,41 +84,42 @@ fun FeedScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            when {
-                uiState.isLoading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            if (feedState.isLoading && feedState.polls.isEmpty()) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else if (feedState.polls.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "No hay encuestas aún",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "¡Crea la primera encuesta!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
-                uiState.polls.isEmpty() -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("🗳️", style = MaterialTheme.typography.displayLarge)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "No hay encuestas aún",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(feedState.polls) { poll ->
+                        PollCard(
+                            poll = poll,
+                            onVoteClick = { onNavigateToVote(poll.id) },
+                            onResultsClick = { onNavigateToResults(poll.id) }
                         )
-                        Text(
-                            text = "¡Sé el primero en crear una!",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 8.dp)
-                    ) {
-                        items(uiState.polls) { poll ->
-                            PollCard(
-                                poll = poll,
-                                onVoteClick = { onNavigateToVote(poll.id) },
-                                onResultsClick = { onNavigateToResults(poll.id) }
-                            )
-                        }
                     }
                 }
             }

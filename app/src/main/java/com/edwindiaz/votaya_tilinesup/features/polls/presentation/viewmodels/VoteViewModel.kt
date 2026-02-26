@@ -1,3 +1,4 @@
+//VoteViewModel.kt
 package com.edwindiaz.votaya_tilinesup.features.polls.presentation.viewmodels
 
 import androidx.lifecycle.ViewModel

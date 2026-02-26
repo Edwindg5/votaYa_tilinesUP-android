@@ -1,4 +1,4 @@
-//com.edwindiaz.votaya_tilinesup
+//MainActivity.kt
 package com.edwindiaz.votaya_tilinesup
 
 import android.os.Bundle

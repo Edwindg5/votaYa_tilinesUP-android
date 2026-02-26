@@ -1,3 +1,4 @@
+//RegisterViewModel.kt
 package com.edwindiaz.votaya_tilinesup.features.auth.presentation.viewmodels
 
 import androidx.lifecycle.ViewModel
@@ -27,8 +28,11 @@ class RegisterViewModel @Inject constructor(
     fun register(email: String, password: String, displayName: String, username: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            registerUser(email, password, displayName, username).fold(
-                onSuccess = { _uiState.update { it.copy(isLoading = false, isSuccess = true) } },
+            val result = registerUser(email, password, displayName, username)
+            result.fold(
+                onSuccess = {
+                    _uiState.update { it.copy(isLoading = false, isSuccess = true) }
+                },
                 onFailure = { e ->
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                     _events.emit(e.message ?: "Error al registrarse")

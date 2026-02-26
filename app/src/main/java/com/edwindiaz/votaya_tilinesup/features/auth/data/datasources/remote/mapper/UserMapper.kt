@@ -1,3 +1,4 @@
+//UserMapper.kt
 package com.edwindiaz.votaya_tilinesup.features.auth.data.datasources.remote.mapper
 
 import com.edwindiaz.votaya_tilinesup.features.auth.data.datasources.remote.models.UserDto
@@ -7,5 +8,14 @@ fun UserDto.toDomain() = User(
     uid = uid,
     displayName = displayName,
     username = username,
-    email = email
+    email = email,
+    photoUrl = photoUrl
+)
+
+fun User.toDto() = UserDto(
+    uid = uid,
+    displayName = displayName,
+    username = username,
+    email = email,
+    photoUrl = photoUrl
 )

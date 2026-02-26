@@ -1,5 +1,9 @@
+//LoginScreen.kt
 package com.edwindiaz.votaya_tilinesup.features.auth.presentation.screens
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7,37 +11,71 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.edwindiaz.votaya_tilinesup.core.auth.GoogleAuthUiClient
 import com.edwindiaz.votaya_tilinesup.features.auth.presentation.components.GoogleSignInButton
+import com.edwindiaz.votaya_tilinesup.features.auth.presentation.viewmodels.AuthViewModel
 import com.edwindiaz.votaya_tilinesup.features.auth.presentation.viewmodels.LoginViewModel
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     onNavigateToRegister: () -> Unit,
     onLoginSuccess: () -> Unit,
-    viewModel: LoginViewModel = hiltViewModel()
+    loginViewModel: LoginViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by loginViewModel.uiState.collectAsStateWithLifecycle()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val googleAuthUiClient = remember { GoogleAuthUiClient(context, FirebaseAuth.getInstance()) }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.let { intent ->
+                scope.launch {
+                    googleAuthUiClient.signInWithIntent(intent).fold(
+                        onSuccess = { idToken ->
+                            loginViewModel.loginWithGoogle(idToken)
+                        },
+                        onFailure = { e ->
+                            snackbarHostState.showSnackbar("Error: ${e.message}")
+                        }
+                    )
+                }
+            }
+        }
+    }
 
     LaunchedEffect(uiState.isSuccess) {
-        if (uiState.isSuccess) onLoginSuccess()
+        if (uiState.isSuccess) {
+            authViewModel.updateAuthState()
+            onLoginSuccess()
+        }
     }
 
     LaunchedEffect(Unit) {
-        viewModel.events.collect { message ->
+        loginViewModel.events.collect { message ->
             snackbarHostState.showSnackbar(message)
         }
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -52,7 +90,6 @@ fun LoginScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Logo / Título
                 Text(
                     text = "🗳️",
                     fontSize = 64.sp
@@ -71,7 +108,6 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Email
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
@@ -81,7 +117,6 @@ fun LoginScreen(
                     singleLine = true
                 )
 
-                // Password
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
@@ -92,9 +127,8 @@ fun LoginScreen(
                     visualTransformation = PasswordVisualTransformation()
                 )
 
-                // Botón login
                 Button(
-                    onClick = { viewModel.loginWithEmail(email, password) },
+                    onClick = { loginViewModel.loginWithEmail(email, password) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
@@ -112,13 +146,20 @@ fun LoginScreen(
                     }
                 }
 
-                // Botón Google
                 GoogleSignInButton(
-                    onClick = { /* TODO: implementar en siguiente fase */ },
+                    onClick = {
+                        try {
+                            val signInIntent = googleAuthUiClient.getSignInIntent()
+                            launcher.launch(signInIntent)
+                        } catch (e: Exception) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Error al iniciar Google Sign In: ${e.message}")
+                            }
+                        }
+                    },
                     isLoading = uiState.isLoading
                 )
 
-                // Ir a registro
                 TextButton(onClick = onNavigateToRegister) {
                     Text(
                         "¿No tienes cuenta? Regístrate",

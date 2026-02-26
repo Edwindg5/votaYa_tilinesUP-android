@@ -1,3 +1,4 @@
+//AuthRepositoryModule.kt
 package com.edwindiaz.votaya_tilinesup.features.auth.data.di
 
 import com.edwindiaz.votaya_tilinesup.features.auth.data.repositories.AuthRepositoryImpl

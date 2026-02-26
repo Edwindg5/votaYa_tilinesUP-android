@@ -1,3 +1,4 @@
+//LoginViewModel.kt
 package com.edwindiaz.votaya_tilinesup.features.auth.presentation.viewmodels
 
 import androidx.lifecycle.ViewModel
@@ -29,8 +30,11 @@ class LoginViewModel @Inject constructor(
     fun loginWithEmail(email: String, password: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            signInWithEmail(email, password).fold(
-                onSuccess = { _uiState.update { it.copy(isLoading = false, isSuccess = true) } },
+            val result = signInWithEmail(email, password)
+            result.fold(
+                onSuccess = {
+                    _uiState.update { it.copy(isLoading = false, isSuccess = true) }
+                },
                 onFailure = { e ->
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                     _events.emit(e.message ?: "Error al iniciar sesión")
@@ -42,8 +46,11 @@ class LoginViewModel @Inject constructor(
     fun loginWithGoogle(idToken: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            signInWithGoogle(idToken).fold(
-                onSuccess = { _uiState.update { it.copy(isLoading = false, isSuccess = true) } },
+            val result = signInWithGoogle(idToken)
+            result.fold(
+                onSuccess = {
+                    _uiState.update { it.copy(isLoading = false, isSuccess = true) }
+                },
                 onFailure = { e ->
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                     _events.emit(e.message ?: "Error con Google")
