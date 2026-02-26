@@ -5,4 +5,6 @@ data class PollOptionDto(
     val id: String = "",
     val text: String = "",
     val votes: Int = 0
-)
+) {
+    constructor() : this("", "", 0)
+}

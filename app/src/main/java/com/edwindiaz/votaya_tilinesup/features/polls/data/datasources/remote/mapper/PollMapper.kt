@@ -1,4 +1,4 @@
-//PollMapper.kt
+// PollMapper.kt
 package com.edwindiaz.votaya_tilinesup.features.polls.data.datasources.remote.mapper
 
 import com.edwindiaz.votaya_tilinesup.features.polls.data.datasources.remote.models.PollDto
@@ -18,14 +18,14 @@ fun PollOption.toDto() = PollOptionDto(
     votes = votes
 )
 
-fun PollDto.toDomain(options: List<PollOption> = emptyList()): Poll {
+fun PollDto.toDomain(options: List<PollOption> = emptyList(), authorName: String = ""): Poll {
     return Poll(
         id = id,
         question = title,
         authorId = ownerId,
-        authorName = "", // Esto se puede obtener de users collection después
+        authorName = authorName,
         options = options,
         totalVotes = totalVotes,
-        createdAt = createdAt?.seconds?.times(1000) ?: 0L
+        createdAt = createdAt
     )
 }

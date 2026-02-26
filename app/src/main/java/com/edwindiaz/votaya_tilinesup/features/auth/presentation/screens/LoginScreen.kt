@@ -20,10 +20,13 @@ import com.edwindiaz.votaya_tilinesup.R
 import com.edwindiaz.votaya_tilinesup.features.auth.presentation.components.GoogleSignInButton
 import com.edwindiaz.votaya_tilinesup.features.auth.presentation.viewmodels.LoginViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.tasks.Task
 import kotlinx.coroutines.launch
 import android.util.Log
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun LoginScreen(
@@ -37,30 +40,43 @@ fun LoginScreen(
 
     val webClientId = remember { context.getString(R.string.default_web_client_id) }
 
-    val googleSignInClient = remember {
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+    Log.d("LoginScreen", "🔑 Web Client ID: $webClientId")
+
+    val gso = remember {
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(webClientId)
             .requestEmail()
+            .requestProfile()
             .build()
-        GoogleSignIn.getClient(context, gso)
     }
+
+    val googleSignInClient = remember { GoogleSignIn.getClient(context, gso) }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.let { intent ->
+            result.data?.let { data ->
+                val task: Task<GoogleSignInAccount> = GoogleSignIn.getSignedInAccountFromIntent(data)
                 try {
-                    val task = GoogleSignIn.getSignedInAccountFromIntent(intent)
                     val account = task.getResult(ApiException::class.java)
+                    Log.d("LoginScreen", "✅ Google Sign-In exitoso: ${account.email}")
                     account.idToken?.let { idToken ->
-                        Log.d("LoginScreen", "📨 Token obtenido, iniciando login...")
                         loginViewModel.loginWithGoogle(idToken)
+                    } ?: run {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Error: No se pudo obtener el token")
+                        }
                     }
                 } catch (e: ApiException) {
-                    Log.e("LoginScreen", "Error en Google Sign-In", e)
+                    Log.e("LoginScreen", "❌ Error ${e.statusCode}: ${e.message}")
+                    val errorMsg = when (e.statusCode) {
+                        10 -> "Error de configuración: Client ID incorrecto"
+                        12501 -> "Inicio de sesión cancelado"
+                        else -> "Error ${e.statusCode}: ${e.message}"
+                    }
                     scope.launch {
-                        snackbarHostState.showSnackbar("Error: ${e.message}")
+                        snackbarHostState.showSnackbar(errorMsg)
                     }
                 }
             }
@@ -69,18 +85,19 @@ fun LoginScreen(
         }
     }
 
-    // Observar cuando el login es exitoso
+    // Observar estado del login
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
-            Log.d("LoginScreen", "✅ Login exitoso, notificando a AppNavigation")
+            Log.d("LoginScreen", "✅ Login exitoso en ViewModel")
             onLoginSuccess()
             loginViewModel.resetState()
         }
     }
 
     LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            snackbarHostState.showSnackbar(it)
+        uiState.error?.let { error ->
+            Log.e("LoginScreen", "❌ Error en ViewModel: $error")
+            snackbarHostState.showSnackbar(error)
             loginViewModel.clearError()
         }
     }
@@ -118,12 +135,14 @@ fun LoginScreen(
 
                     GoogleSignInButton(
                         onClick = {
-                            try {
-                                Log.d("LoginScreen", "🖱️ Click en botón de Google")
-                                launcher.launch(googleSignInClient.signInIntent)
-                            } catch (e: Exception) {
-                                Log.e("LoginScreen", "Error al lanzar Google Sign-In", e)
-                                scope.launch {
+                            scope.launch {
+                                try {
+                                    Log.d("LoginScreen", "🖱️ Click en botón de Google")
+                                    // Cerrar sesión previa para forzar selección de cuenta
+                                    googleSignInClient.signOut().await()
+                                    launcher.launch(googleSignInClient.signInIntent)
+                                } catch (e: Exception) {
+                                    Log.e("LoginScreen", "❌ Error al lanzar Google Sign-In", e)
                                     snackbarHostState.showSnackbar("Error: ${e.message}")
                                 }
                             }
