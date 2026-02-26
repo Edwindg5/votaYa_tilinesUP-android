@@ -8,8 +8,11 @@ interface PollRepository {
     // Para obtener una sola vez
     suspend fun getPolls(): List<Poll>
 
-    // Para tiempo real (opcional)
+    // Para tiempo real (lista completa)
     fun observePolls(): Flow<List<Poll>>
+
+    // Para tiempo real (encuesta específica)
+    fun observePollById(pollId: String): Flow<Result<Poll>>
 
     suspend fun createPoll(question: String, options: List<String>): Result<Poll>
     suspend fun vote(pollId: String, optionId: String): Result<Unit>

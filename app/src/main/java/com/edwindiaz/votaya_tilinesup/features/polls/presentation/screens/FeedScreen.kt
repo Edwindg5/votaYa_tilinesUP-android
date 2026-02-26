@@ -27,10 +27,7 @@ fun FeedScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // Cargar polls al iniciar la pantalla
-    LaunchedEffect(Unit) {
-        viewModel.loadPolls()
-    }
+    // No necesitamos loadPolls() porque el ViewModel ya está observando en tiempo real desde el init
 
     Scaffold(
         topBar = {
@@ -63,7 +60,7 @@ fun FeedScreen(
                 .padding(paddingValues)
         ) {
             when {
-                uiState.isLoading -> {
+                uiState.isLoading && uiState.polls.isEmpty() -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -72,7 +69,7 @@ fun FeedScreen(
                     }
                 }
 
-                uiState.error != null -> {
+                uiState.error != null && uiState.polls.isEmpty() -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -86,7 +83,7 @@ fun FeedScreen(
                             style = MaterialTheme.typography.bodyLarge
                         )
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadPolls() }) {
+                        Button(onClick = { /* No necesitamos recargar, el flow ya lo hace */ }) {
                             Text("Reintentar")
                         }
                     }

@@ -2,6 +2,7 @@
 package com.edwindiaz.votaya_tilinesup.features.polls.data.repositories
 
 import android.util.Log
+import com.edwindiaz.votaya_tilinesup.features.polls.data.datasources.remote.mapper.toDomain
 import com.edwindiaz.votaya_tilinesup.features.polls.domain.entities.Poll
 import com.edwindiaz.votaya_tilinesup.features.polls.domain.entities.PollOption
 import com.edwindiaz.votaya_tilinesup.features.polls.domain.repositories.PollRepository
@@ -83,6 +84,37 @@ class PollRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun observePollById(pollId: String): Flow<Result<Poll>> = callbackFlow {
+        val pollRef = pollsRef.child(pollId)
+
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                try {
+                    // No usamos viewModelScope aquí, procesamos directamente
+                    val poll = getPollFromSnapshotSync(snapshot)
+                    if (poll != null) {
+                        trySend(Result.success(poll)).isSuccess
+                    } else {
+                        trySend(Result.failure(Exception("Encuesta no encontrada"))).isSuccess
+                    }
+                } catch (e: Exception) {
+                    trySend(Result.failure(e)).isSuccess
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                trySend(Result.failure(error.toException())).isSuccess
+                close(error.toException())
+            }
+        }
+
+        pollRef.addValueEventListener(listener)
+
+        awaitClose {
+            pollRef.removeEventListener(listener)
+        }
+    }
+
     override suspend fun createPoll(question: String, options: List<String>): Result<Poll> = try {
         Log.d("PollRepository", "createPoll: question='$question', options=$options")
 
@@ -114,7 +146,7 @@ class PollRepositoryImpl @Inject constructor(
         pollRef.setValue(pollMap).await()
         Log.d("PollRepository", "✅ Encuesta creada con ID: $pollId")
 
-        // Obtener el timestamp real después de guardar - CON MANEJO DE TIPOS CORRECTO
+        // Obtener el timestamp real después de guardar
         val savedSnapshot = pollRef.get().await()
         val createdAtValue = savedSnapshot.child("createdAt").value
 
@@ -133,7 +165,7 @@ class PollRepositoryImpl @Inject constructor(
             currentUser.displayName ?: ""
         }
 
-        // Crear las entidades de opciones - CON MANEJO DE TIPOS CORRECTO
+        // Crear las entidades de opciones
         val optionEntities = optionsMap.map { (optionId, optionData) ->
             val optionMap = optionData as Map<String, Any>
             val votesValue = optionMap["votes"]
@@ -332,7 +364,7 @@ class PollRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun pollSnapshotToPollSync(snapshot: DataSnapshot): Poll? {
+    private fun getPollFromSnapshotSync(snapshot: DataSnapshot): Poll? {
         return try {
             val pollId = snapshot.key ?: return null
             val title = snapshot.child("title").getValue(String::class.java) ?: return null
@@ -378,11 +410,14 @@ class PollRepositoryImpl @Inject constructor(
                 )
             }
 
+            // Versión síncrona - no podemos obtener authorName aquí porque requiere llamada suspendida
+            // El authorName se cargará después en el ViewModel si es necesario
+
             Poll(
                 id = pollId,
                 question = title,
                 authorId = ownerId,
-                authorName = "",
+                authorName = "", // Se actualizará después
                 options = options,
                 totalVotes = totalVotes,
                 createdAt = createdAt
@@ -390,6 +425,10 @@ class PollRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             null
         }
+    }
+
+    private fun pollSnapshotToPollSync(snapshot: DataSnapshot): Poll? {
+        return getPollFromSnapshotSync(snapshot)
     }
 
     private suspend fun pollSnapshotToPoll(snapshot: DataSnapshot): Poll? {

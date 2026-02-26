@@ -6,9 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.edwindiaz.votaya_tilinesup.features.polls.domain.usecases.ObservePollsUseCase
 import com.edwindiaz.votaya_tilinesup.features.polls.presentation.screens.FeedUIState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -22,37 +23,38 @@ class FeedViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 
     init {
-        loadPolls()
+        observePollsInRealTime()
     }
 
-    fun loadPolls() {
+    private fun observePollsInRealTime() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
-            try {
-                // Pequeño delay para que se vea el indicador de carga
-                delay(500)
-
-                val polls = observePolls()
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        polls = polls,
-                        error = null  // Quitamos el error si no hay polls
-                    )
+            observePolls()
+                .onStart {
+                    _uiState.update { it.copy(isLoading = true, error = null) }
                 }
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = e.message ?: "Error al cargar encuestas"
-                    )
+                .catch { exception ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = exception.message ?: "Error al cargar encuestas"
+                        )
+                    }
                 }
-            }
+                .collect { polls ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            polls = polls,
+                            error = null
+                        )
+                    }
+                }
         }
     }
 
     fun refreshPolls() {
-        loadPolls()
+        // No necesitamos hacer nada, el Flow ya está observando
+        // Pero podemos forzar una recarga si es necesario
+        observePollsInRealTime()
     }
 }

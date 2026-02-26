@@ -66,6 +66,7 @@ class VoteViewModel @Inject constructor(
                             error = null
                         )
                     }
+                    _events.emit("¡Voto registrado con éxito!")
                 },
                 onFailure = { e ->
                     _uiState.update {
